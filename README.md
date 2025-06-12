@@ -6,7 +6,7 @@
 
 ## 🌐 Overview
 
-**WordFreq** is a cloud-native, event-driven system that processes user-uploaded text files to compute the top 10 most frequent words. It uses Amazon S3 for file storage, SQS for task queuing, EC2 for scalable compute, and DynamoDB for result persistence. The system is designed for real-world production environments with observability, scalability, and fault tolerance.
+**WordFreq** is a cloud-native, event-driven system that automatically analyzes text files uploaded to S3, extracting and ranking the top 10 most frequent words in each file. Designed using scalable, distributed architecture patterns, the project leverages AWS services including EC2, SQS, S3, DynamoDB, and CloudWatch for monitoring and autoscaling. The platform enables real-time processing pipelines for educational, professional, or enterprise-grade workloads.
 
 ---
 
@@ -43,20 +43,108 @@
 
 ## 💡 Use Cases
 
-- MVP for real-time data ingestion pipelines  
-- Benchmarking EC2 instance performance and auto-scaling policies  
-- Cloud engineering demo for queue-first, stateless distributed architectures  
+- Real-time file processing system for enterprise apps  
+- Serverless MVP to demonstrate AWS decoupled microservices  
+- Teaching resource for cloud-based infrastructure deployment  
+- Benchmark framework for EC2 auto scaling and performance metrics  
 
 ---
 
-## 🏗️ AWS Services Utilized
+## 🏗️ AWS Services Used
 
-| Service         | Description                                                  |
-|-----------------|--------------------------------------------------------------|
-| **Amazon S3**    | Storage for uploaded and processed files                    |
-| **Amazon SQS**   | Messaging queue for job distribution and status signaling   |
-| **Amazon EC2**   | Hosts worker nodes (written in Go)                          |
-| **Auto Scaling** | Dynamically provisions compute based on workload            |
-| **CloudWatch**   | Monitors queue size, triggers scaling policies              |
-| **DynamoDB**     | Stores top 10 word frequencies per job                      |
-| **IAM**          | Role-based access management for AWS service interactions   |
+| Service         | Purpose                                                  |
+|------------------|-----------------------------------------------------------|
+| **Amazon S3**     | File upload, persistence and input/output storage        |
+| **Amazon SQS**    | Distributes jobs between services (Jobs & Results Queues)|
+| **Amazon EC2**    | Hosts auto-scalable processing workers (written in Go)   |
+| **CloudWatch**    | Monitors job queue metrics and manages scaling triggers  |
+| **Auto Scaling**  | Automatically increases/decreases EC2 instances          |
+| **DynamoDB**      | Stores final results of each processed file              |
+| **IAM**           | Ensures secure service interactions with limited roles   |
+
+---
+
+## 📸 System Architecture
+
+```mermaid
+graph TD;
+    User--Upload File-->S3_Upload_Bucket;
+    S3_Upload_Bucket--S3 Trigger-->SQS_Jobs_Queue;
+    EC2_Worker--Poll-->SQS_Jobs_Queue;
+    EC2_Worker--Process File-->S3_Processing_Bucket;
+    EC2_Worker--Store Result-->DynamoDB;
+    EC2_Worker--Notify Completion-->SQS_Results_Queue;
+    CloudWatch--Track Queue Metrics-->AutoScalingGroup;
+```
+## ⚙️ Getting Started
+
+Follow the steps below to set up and deploy the WordFreq system on your AWS account.
+
+---
+
+### 🔧 Prerequisites
+
+- ✅ AWS CLI installed and configured  
+- ✅ AWS IAM credentials with access to:
+  - EC2
+  - S3
+  - SQS
+  - DynamoDB
+  - IAM
+  - CloudWatch  
+- ✅ Golang installed (for local development or EC2 workers)
+
+---
+
+### 🛠 Infrastructure Setup
+
+#### 1️⃣ Create S3 Buckets
+
+- `uploading-bucket` — where users upload raw `.txt` files  
+- `processing-bucket` — where processed files are stored (optional, for archival)
+
+#### 2️⃣ Set Up SQS Queues
+
+- `jobs-queue` — used for dispatching file processing jobs  
+- `results-queue` — receives confirmation after job completion
+
+#### 3️⃣ Create DynamoDB Table
+
+- Table Name: `wordfreq-results`  
+- Primary Key: `job_id` (String)
+
+#### 4️⃣ IAM Role for EC2
+
+Create an IAM role and attach policies for:
+
+- `AmazonS3FullAccess`
+- `AmazonSQSFullAccess`
+- `AmazonDynamoDBFullAccess`
+- `CloudWatchAgentServerPolicy`
+
+Assign this IAM role to your EC2 instance.
+
+#### 5️⃣ EC2 Configuration
+
+- Launch an EC2 instance with:
+  - IAM Role (above)
+  - Security Group with outbound internet access
+  - User data to install Go (or use an AMI with Go preinstalled)
+
+#### 6️⃣ Auto Scaling Group (ASG)
+
+- Use EC2 launch template as ASG base
+- Auto Scaling policies:
+  - Scale out: `ApproximateNumberOfMessagesVisible > 25`
+  - Scale in: `ApproximateNumberOfMessagesVisible < 5`
+- Cooldown period: 50 seconds
+
+---
+
+### 🚀 Running the Worker
+
+#### Clone the Repository
+
+```bash
+git clone https://github.com/your-username/wordfreq.git
+cd wordfreq
